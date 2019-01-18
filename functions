@@ -2,7 +2,8 @@ LINUX_PATHS="/usr/lib/slack:/usr/local/lib/slack"
 MACOS_PATHS="/Applications/Slack.app/Contents:$HOME/Applications/Slack.app/Contents"
 BEGIN_SECTION_MARKER='// Slack Dark Start'
 END_SECTION_MARKER='// Slack Dark End'
-TARGET_DIR="resources/app.asar.unpacked/src/static"
+LINUX_TARGET_DIR="resources/app.asar.unpacked/src/static"
+MACOS_TARGET_DIR="Resources/app.asar.unpacked/src/static"
 TARGET_FILE="ssb-interop.js"
 TARGET_CSS="custom.css"
 THEMES_FILE="themes"
@@ -12,9 +13,9 @@ DEFAULT_CSS_URL="https://raw.githubusercontent.com/bsundsrud/slack-dark-installe
 function find_dir() {
     local path
     if [[ "$OSTYPE" == "linux-gnu" ]]; then
-        path="$(find_dir_in_paths "$LINUX_PATHS")"
+        path="$(find_dir_in_paths "$LINUX_PATHS" "$LINUX_TARGET_DIR")"
     elif [[ "$OSTYPE" == "darwin*" ]]; then
-        path="$(find_dir_macos "$MACOS_PATHS")"
+        path="$(find_dir_macos "$MACOS_PATHS" "$MACOS_TARGET_DIR")"
     fi
     if [ -n "$path" ]; then
         echo "$path"
@@ -26,12 +27,14 @@ function find_dir() {
 }
 
 # paths: colon-separated list of paths to search for slack installs
+# target_dir: path under a slack install to find the $TARGET_FILE
 function find_dir_in_paths() {
     local paths="$1"
+    local target_dir="$2"
     for p in ${paths//:/$'\n'}; do
-        local possible_target="$p/$TARGET_DIR/$TARGET_FILE"
+        local possible_target="$p/$target_dir/$TARGET_FILE"
         if [ -f "$possible_target" ]; then
-            echo "$p/$TARGET_DIR"
+            echo "$p/$target_dir"
             return 0
         fi
     done
@@ -73,6 +76,12 @@ function insert_section() {
     local inject_css="$3"
     local target_file="$fpath/$TARGET_FILE"
     local orig_file="${target_file}.orig"
+    
+    if [ ! -f "$target_file" ]; then
+        log "Can't find $target_file, this path seems incorrect."
+        return 1
+    fi
+    
     cp "$target_file" "$orig_file"
     log "backed up file to $orig_file"
     echo "$BEGIN_SECTION_MARKER" >> "$target_file"
