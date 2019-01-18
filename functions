@@ -6,7 +6,7 @@ TARGET_DIR="resources/app.asar.unpacked/src/static"
 TARGET_FILE="ssb-interop.js"
 TARGET_CSS="custom.css"
 THEMES_FILE="themes"
-DEFAULT_CSS_URL="https://raw.githubusercontent.com/mallowigi/slack-one-dark-theme/master/custom.css"
+DEFAULT_CSS_URL="https://raw.githubusercontent.com/bsundsrud/slack-dark-installer/5c31a2dd532d521566f27e1fda62fc25e2b96620/theme_dir/night-mode.css"
 
 # Find slack dir on known paths on linux/macOS
 function find_dir() {
