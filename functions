@@ -1,0 +1,156 @@
+LINUX_PATHS="/usr/lib/slack:/usr/local/lib/slack"
+MACOS_PATHS="/Applications/Slack.app/Contents:$HOME/Applications/Slack.app/Contents"
+BEGIN_SECTION_MARKER='// Slack Dark Start'
+END_SECTION_MARKER='// Slack Dark End'
+TARGET_DIR="resources/app.asar.unpacked/src/static"
+TARGET_FILE="ssb-interop.js"
+TARGET_CSS="custom.css"
+THEMES_FILE="themes"
+DEFAULT_CSS_URL="https://raw.githubusercontent.com/mallowigi/slack-one-dark-theme/master/custom.css"
+
+# Find slack dir on known paths on linux/macOS
+function find_dir() {
+    local path
+    if [[ "$OSTYPE" == "linux-gnu" ]]; then
+        path="$(find_dir_in_paths "$LINUX_PATHS")"
+    elif [[ "$OSTYPE" == "darwin*" ]]; then
+        path="$(find_dir_macos "$MACOS_PATHS")"
+    fi
+    if [ -n "$path" ]; then
+        echo "$path"
+    else
+        log "Could not find suitable file"
+        echo ""
+        return 1
+    fi
+}
+
+# paths: colon-separated list of paths to search for slack installs
+function find_dir_in_paths() {
+    local paths="$1"
+    for p in ${paths//:/$'\n'}; do
+        local possible_target="$p/$TARGET_DIR/$TARGET_FILE"
+        if [ -f "$possible_target" ]; then
+            echo "$p/$TARGET_DIR"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# theme_path: path to theme file
+# theme_name: theme name to look for
+# echos the URL for the given theme, or returns the default URL
+function theme_path() {
+    local theme_path="$1"
+    local theme_name="$2"
+    
+    local theme_url="$(cat "$theme_path" | grep "^$theme_name" | cut -d'|' -f2-)"
+    if [ -z "$theme_url" ]; then
+        log "Could not find theme named $theme_name in $theme_path, falling back to default"
+        echo "$DEFAULT_CSS_URL"
+    else
+        echo "$theme_url"
+    fi
+}
+# path: path to slack resources dir
+# returns 0 if theme is already installed, 1 otherwise
+function is_installed() {
+    local fpath="$1"
+    if grep -q "^${BEGIN_SECTION_MARKER}$" "$fpath"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# fpath: path to slack resources dir
+# inject: js additions to inject into $fpath/$TARGET_FILE
+# inject_css: url to CSS file to inject
+function insert_section() {
+    local fpath="$1"
+    local inject="$2"
+    local inject_css="$3"
+    local target_file="$fpath/$TARGET_FILE"
+    local orig_file="${target_file}.orig"
+    cp "$target_file" "$orig_file"
+    log "backed up file to $orig_file"
+    echo "$BEGIN_SECTION_MARKER" >> "$target_file"
+    cat "$inject" | sed -e "s~||CSSPATH||~$inject_css~" >> "$target_file"
+    echo "$END_SECTION_MARKER" >> "$target_file"
+    log "Installed to $target_file"
+}
+
+# fpath: path to slack resources dir
+function remove_section() {
+    local fpath="$1"
+    local target_file="$fpath/$TARGET_FILE"
+    local target_css="$fpath/$TARGET_CSS"
+    local orig_file="${target_file}.orig"
+    if [ -f "$orig_file" ]; then
+        log "restoring from backup $orig_file"
+        cp "$orig_file" "$target_file"
+        rm "$orig_file"
+    fi
+}
+
+# fpath: path to slack resources dir
+function uninstall() {
+    local fpath="$1"
+    if is_installed "$fpath/$TARGET_FILE"; then
+        log "Uninstalling from $fpath"
+        remove_section "$fpath"
+        return 0
+    else
+        log "Not found in $fpath, exiting"
+        return 1
+    fi
+}
+# fpath: path to slack resources dir
+# inject: file to inject into $fpath/$TARGET_FILE
+# inject_css: URL to theme css file to be injected into $fpath/$TARGET_FILE
+function install() {
+    local fpath="$1"
+    local inject="$2"
+    local inject_css="$3"
+    if is_installed "$fpath/$TARGET_FILE"; then
+        log "Removing existing theme modifications from $fpath"
+        remove_section "$fpath"
+    fi
+    log "Installing theme into $fpath"
+    insert_section "$fpath" "$inject" "$inject_css"
+}
+
+# path [optional]: Path to install to.  If blank, search known locations for installs
+function supplied_path_or_guess() {
+    if [ -z "${1-}" ]; then
+        log "Trying to guess install path..."
+        local found_path="$(find_dir)"
+        if [ -z "$found_path" ]; then
+            return 1
+        fi
+        log "Found file at $found_path"
+        echo "$found_path"
+    else
+        echo "$1"
+    fi
+}
+
+# log all args to stderr
+function log() {
+    echo $@ >&2
+}
+
+# prompt: string to prompt user with
+function prompt_for_continue() {
+    read -p "$1 [yN] " var
+    case "$var" in
+        [yY])
+            return 0
+            ;;
+        *)
+            echo "Cancelling at user request"
+            return 1
+            ;;
+    esac
+    }
