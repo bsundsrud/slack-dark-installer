@@ -6,6 +6,8 @@ Attempts to identify slack installs on macOS and linux and inject code to load c
 
 This repo is no longer maintained as Slack changed their on-disk format for 4.0+.  I recommend moving to [slack-dark-mode](https://github.com/LanikSJ/slack-dark-mode) instead, as I don't want to have to manage dealing with weird nodejs archives.
 
+**Update** Due to some install and theming problems in the above, I've forked it and fixed issues here:https://github.com/bsundsrud/slack-dark-mode
+
 ## Installing
 
 Run `./install.sh [theme-name] [path-to-slack-resource-dir]`.  Theme name defaults to `default`, and if the slack resource path is omitted it will search known locations for installs.  If it can't find it, you will need to supply the directory that `ssb-interop.js` lives in (on my linux system, for example, this is `/usr/lib/slack/resources/app.asar.unpacked/src/static/ssb-interop.js`
